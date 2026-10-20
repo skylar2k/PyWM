@@ -295,25 +295,41 @@ NOTCHED = Screen(1, "main", Rect(0, 0, 1800, 1169), Rect(0, 38, 1800, 1131))  # 
 UNRESERVED = Screen(1, "main", Rect(0, 0, 1800, 1169), Rect(0, 0, 1800, 1169))
 
 
-def bar_monitor(screen: Screen, covers: bool):
-    wm = WindowManager(make_config(BAR_ENABLED=True, BAR_HEIGHT=24, BAR_COVERS_MENU=covers))
+def bar_monitor(screen: Screen):
+    wm = WindowManager(make_config(BAR_ENABLED=True))
     wm.set_screens([screen])
     return wm.cur
 
 
-def test_bar_normally_sits_below_the_reserved_band_and_takes_layout_space():
-    mon = bar_monitor(NOTCHED, covers=False)
-    assert mon.bar_rect == Rect(0, 38, 1800, 24)
-    assert mon.area == Rect(0, 62, 1800, 1107)
-
-
-def test_covering_bar_fills_the_reserved_band_and_loses_no_space():
-    mon = bar_monitor(NOTCHED, covers=True)
-    assert mon.bar_rect == Rect(0, 0, 1800, 38)  # as tall as the band it replaces
+def test_bar_covers_the_reserved_band_and_loses_no_space():
+    mon = bar_monitor(NOTCHED)
+    assert mon.bar_rect == Rect(0, 0, 1800, 38)  # as tall as the band it covers
     assert mon.area == Rect(0, 38, 1800, 1131)  # windows start where they always did
 
 
-def test_covering_bar_on_a_display_with_no_reserved_band_takes_its_own_height():
-    mon = bar_monitor(UNRESERVED, covers=True)
+def test_bar_on_a_display_with_no_reserved_band_takes_its_own_height():
+    mon = bar_monitor(UNRESERVED)
     assert mon.bar_rect == Rect(0, 0, 1800, 24)
     assert mon.area == Rect(0, 24, 1800, 1145)
+
+
+def test_bar_height_comes_from_the_reserved_band_not_from_a_setting():
+    from pywm.core.monitor import FALLBACK_BAR_HEIGHT
+
+    assert bar_monitor(NOTCHED).bar_rect.h == 38
+    assert bar_monitor(UNRESERVED).bar_rect.h == FALLBACK_BAR_HEIGHT
+
+
+def test_toggle_bar_hides_the_bar_and_gives_back_its_space():
+    wm = WindowManager(make_config(BAR_ENABLED=True))
+    wm.set_screens([UNRESERVED])
+    assert wm.cur.area.y == 24
+    wm.toggle_bar()
+    assert wm.cur.bar_rect is None and wm.cur.area == UNRESERVED.work_area
+
+
+def test_toggle_bar_cannot_enable_a_bar_that_is_disabled_in_the_config():
+    wm = WindowManager(make_config(BAR_ENABLED=False))
+    wm.set_screens([UNRESERVED])
+    wm.toggle_bar()
+    assert wm.cur.bar_rect is None

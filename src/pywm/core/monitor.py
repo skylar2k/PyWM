@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from pywm.core.types import WindowId
 from pywm.geometry import Rect
 
+FALLBACK_BAR_HEIGHT = 24  # used only where macOS reserves no band at the top of a display
+
 
 @dataclass(slots=True)
 class TagSettings:
@@ -24,9 +26,7 @@ class Monitor:
     work_area: Rect
     ntags: int = 9
     default_settings: TagSettings = field(default_factory=lambda: TagSettings(1, 0.55, "tile", "float"))
-    bar_height: int = 0
     show_bar: bool = False
-    bar_covers_menu: bool = False
 
     # dwm keeps two tagsets so you can flip back to the previous view.
     tagsets: list[int] = field(default_factory=lambda: [1, 1])
@@ -60,19 +60,17 @@ class Monitor:
 
     @property
     def bar_rect(self) -> Rect | None:
-        """Where the bar is drawn, in AX coordinates.
+        """The band the bar occupies, in AX coordinates: the very top of the display, full width.
 
-        Normally just under the reserved top band (the top of the work area). With
-        `bar_covers_menu` it starts at the very top of the display and is at least as tall as
-        the band macOS reserves there (menu bar, or the notch's safe area), so it fills that band
-        exactly instead of leaving a strip of it showing.
+        It always covers whatever macOS reserves there (the menu bar, or the notch's safe area),
+        so its height is that band's. On a display with no such band (an external monitor whose
+        menu bar auto-hides) it falls back to `FALLBACK_BAR_HEIGHT` and takes that much layout space.
+        The bar package may draw something narrower inside this band.
         """
-        if not (self.show_bar and self.bar_height):
+        if not self.show_bar:
             return None
-        if self.bar_covers_menu:
-            reserved = self.work_area.y - self.frame.y  # 0 only on displays with no reserved band
-            return Rect(self.frame.x, self.frame.y, self.frame.w, max(self.bar_height, reserved))
-        return Rect(self.work_area.x, self.work_area.y, self.work_area.w, self.bar_height)
+        reserved = self.work_area.y - self.frame.y
+        return Rect(self.frame.x, self.frame.y, self.frame.w, reserved or FALLBACK_BAR_HEIGHT)
 
     @property
     def area(self) -> Rect:

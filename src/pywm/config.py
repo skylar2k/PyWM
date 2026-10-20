@@ -13,8 +13,6 @@ from pywm.core.wm import WindowManager as WM
 
 GAP = 6  # pixels between windows, and between windows and the screen edge
 BAR_ENABLED = True
-BAR_HEIGHT = 8
-BAR_COVERS_MENU = True  # start at the very top of the screen, over the menu bar / notch band
 BAR_FONT_SIZE = 13
 COLORS = {  # dwm's defaults, as 0xRRGGBB
     "norm_fg": 0xBBBBBB,

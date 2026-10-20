@@ -63,10 +63,15 @@ missing or not inside its display we use the full frame. See `screens.read_scree
 
 **Notched displays.** `visibleFrame` excludes `NSScreen.safeAreaInsets.top` (38 pt on a MacBook with a notch)
 *even when the menu bar auto-hides*, so the work area never starts at y=0 there. This is not staleness: it is the same with
-and without an `NSApplication`. The bar can still be drawn in that band, because a borderless panel at window level 25 is not
-constrained by AppKit (verified by placing one at y=0). Set `BAR_COVERS_MENU = True` in `config.py` and the bar fills the reserved band
-exactly; tiled windows still start below it, so no space is lost. The notch hides the middle of the bar, which is why tags
-and the layout symbol are left-aligned.
+and without an `NSApplication`.
+
+**The bar draws over that band.** A borderless panel at window level 25 (menu bar: 24) is not constrained by AppKit, so it can
+sit at y=0 (verified by placing one there). `Monitor.bar_rect` is the band: the very top of the display, at least as tall as the
+reserved area, so the menu bar never peeks out underneath. Tiled windows start below the band, so covering it costs no space.
+The bar package draws only a compact indicator inside the band (the tags and the layout symbol, no window title),
+starting at the right edge of the notch (`NSScreen.auxiliaryTopRightArea`) so the app menus on the left stay reachable and
+the rounded screen corners are not involved. On a display with no notch it starts at the horizontal centre. While auto-hide
+shows the menu bar, the indicator stays on top of it.
 
 Caveat: `visibleFrame` can still lag behind a Dock-size or auto-hide change that does not alter the display
 list; pywm re-reads screens on every `ScreensChanged` event (display changes and Space changes), not continuously.

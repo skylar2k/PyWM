@@ -1,4 +1,4 @@
-"""Drawing the bar: tag boxes, layout symbol and the focused window's title, dwm-style."""
+"""Drawing the bar: a compact indicator of the tags (workspaces) and the layout (mode), dwm-style."""
 
 from AppKit import (
     NSBitmapImageFileTypePNG,
@@ -23,8 +23,14 @@ def _color(rgb: int):
     )
 
 
-def draw_cell(font, height, text, x, fg, bg=None, width=None, left=False) -> float:
-    """Draw `text` in a padded cell starting at x. Returns the cell's right edge.
+def cell_width(font, text: str) -> float:
+    """Width of one padded cell. Drawing and measuring both use this, so they cannot disagree."""
+    attrs = {NSFontAttributeName: font}
+    return NSString.stringWithString_(text).sizeWithAttributes_(attrs).width + 2 * PADDING
+
+
+def draw_cell(font, height, text, x, fg, bg=None) -> float:
+    """Draw `text` centred in a padded cell starting at x. Returns the cell's right edge.
 
     A module-level function on purpose: inside an NSObject subclass PyObjC would read
     underscores in a method name as Objective-C argument separators.
@@ -32,13 +38,17 @@ def draw_cell(font, height, text, x, fg, bg=None, width=None, left=False) -> flo
     attrs = {NSFontAttributeName: font, NSForegroundColorAttributeName: _color(fg)}
     string = NSString.stringWithString_(text)
     size = string.sizeWithAttributes_(attrs)
-    cell_w = width if width is not None else size.width + 2 * PADDING
+    cell_w = cell_width(font, text)
     if bg is not None:
         _color(bg).setFill()
         NSRectFill(NSMakeRect(x, 0, cell_w, height))
-    text_x = x + PADDING if left else x + (cell_w - size.width) / 2
-    string.drawAtPoint_withAttributes_((text_x, (height - size.height) / 2), attrs)
+    string.drawAtPoint_withAttributes_((x + (cell_w - size.width) / 2, (height - size.height) / 2), attrs)
     return x + cell_w
+
+
+def content_width(font, status: MonitorStatus) -> float:
+    """How wide the indicator is: one cell per tag, then the layout symbol."""
+    return sum(cell_width(font, name) for name in status.tag_names) + cell_width(font, status.layout_symbol)
 
 
 class BarView(NSView):
@@ -65,11 +75,9 @@ class BarView(NSView):
                 _color(fg).setFill()
                 NSRectFill(NSMakeRect(x + 3, 3, 4, 4))
             x = x_end
-        x = draw_cell(font, h, s.layout_symbol, x, colors["norm_fg"])
-        prefix = "sel" if s.current else "norm"  # the focused monitor's title is highlighted
-        draw_cell(
-            font, h, s.title, x, colors[f"{prefix}_fg"], colors[f"{prefix}_bg"], b.size.width - x, left=True
-        )
+        # The layout ("mode") cell is highlighted on the monitor that has focus.
+        prefix = "sel" if s.current else "norm"
+        draw_cell(font, h, s.layout_symbol, x, colors[f"{prefix}_fg"], colors[f"{prefix}_bg"])
 
 
 def make_view(width: float, height: float, font_size: int, colors: dict[str, int]) -> BarView:

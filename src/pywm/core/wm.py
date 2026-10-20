@@ -112,9 +112,7 @@ class WindowManager:
                     s.work_area,
                     ntags=len(cfg.TAGS),
                     default_settings=defaults,
-                    bar_height=cfg.BAR_HEIGHT if cfg.BAR_ENABLED else 0,
                     show_bar=cfg.BAR_ENABLED,
-                    bar_covers_menu=cfg.BAR_COVERS_MENU,
                 )
             monitors.append(m)
         if not monitors:
@@ -354,7 +352,8 @@ class WindowManager:
             sel.floating = not sel.floating
 
     def toggle_bar(self) -> None:
-        self.cur.show_bar = not self.cur.show_bar and self.cur.bar_height > 0
+        if self.config.BAR_ENABLED:  # with the bar disabled there is nothing to toggle
+            self.cur.show_bar = not self.cur.show_bar
 
     def _other_monitor(self, direction: int) -> int | None:
         if len(self.monitors) < 2:
