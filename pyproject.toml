@@ -1,0 +1,44 @@
+[project]
+name = "pywm"
+version = "0.1.0"
+description = "A dwm-style tiling window manager for macOS, written to be read and extended."
+readme = "README.md"
+license = "MIT"
+classifiers = ["Operating System :: MacOS :: MacOS X", "Topic :: Desktop Environment :: Window Managers"]
+authors = [
+    { name = "Skylar Ramsvik Johansen", email = "skylar.ramsvik.johansen@uib.no" }
+]
+requires-python = ">=3.15"
+dependencies = [
+    "pyobjc-framework-applicationservices>=12.2.2 ; sys_platform == 'darwin'",
+    "pyobjc-framework-cocoa>=12.2.2 ; sys_platform == 'darwin'",
+    "pyobjc-framework-quartz>=12.2.2 ; sys_platform == 'darwin'",
+]
+
+[project.scripts]
+pywm = "pywm.app:main"
+
+[build-system]
+requires = ["uv_build>=0.13.1,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
+]
+build = [
+    "py2app>=0.28.10 ; sys_platform == 'darwin'",
+    "setuptools",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py315"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["RUF012"]
