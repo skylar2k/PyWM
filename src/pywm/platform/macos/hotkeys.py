@@ -39,18 +39,17 @@ from Quartz import (
     kCGSessionEventTap,
 )
 
-from pywm.core.keys import Chord
-from pywm.platform.macos.keycodes import KEYCODES, RELEVANT_FLAGS, flags_for
+from pywm.core.keys import Chord, Mod
+from pywm.platform.macos.keycodes import KEYCODES, candidates
 
 log = logging.getLogger(__name__)
 
 
 class HotkeyTap:
     def __init__(self, chords: set[Chord], on_chord: Callable[[Chord], None]) -> None:
-        self._table: dict[tuple[int, int], Chord] = {}
-        for chord in chords:
-            mods, key = chord
-            self._table[(flags_for(mods), KEYCODES[key])] = chord
+        self._table: dict[tuple[Mod, int], Chord] = {
+            (mods, KEYCODES[key]): (mods, key) for mods, key in chords
+        }
         self._on_chord = on_chord
         self._swallowed: set[int] = set()  # key codes whose key-up we must also swallow
         self._tap = None
@@ -75,6 +74,12 @@ class HotkeyTap:
         CGEventTapEnable(self._tap, True)
         return True
 
+    def _lookup(self, flags: int, code: int) -> Chord | None:
+        for mods in candidates(flags):
+            if (chord := self._table.get((mods, code))) is not None:
+                return chord
+        return None
+
     def _handle(self, event_type, event):
         if event_type in (kCGEventTapDisabledByTimeout, kCGEventTapDisabledByUserInput):
             log.warning("event tap was disabled by macOS; re-enabling")
@@ -86,7 +91,7 @@ class HotkeyTap:
                 self._swallowed.discard(code)
                 return None  # its key-down was ours, so the matching key-up is too
             return event
-        chord = self._table.get((CGEventGetFlags(event) & RELEVANT_FLAGS, code))
+        chord = self._lookup(CGEventGetFlags(event), code)
         if chord is None:
             return event
         self._swallowed.add(code)

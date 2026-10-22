@@ -25,8 +25,11 @@ class WindowsChanged:
 
 
 @dataclass(frozen=True, slots=True)
-class FocusChanged:
-    pass
+class WindowsMoved: ...
+
+
+@dataclass(frozen=True, slots=True)
+class FocusChanged: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,4 +37,4 @@ class ScreensChanged:
     """Displays were (un)plugged or rearranged, or the Space changed."""
 
 
-type Event = AppLaunched | AppTerminated | WindowsChanged | FocusChanged | ScreensChanged
+type Event = AppLaunched | AppTerminated | WindowsChanged | FocusChanged | ScreensChanged | WindowsMoved

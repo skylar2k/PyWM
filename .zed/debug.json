@@ -1,0 +1,14 @@
+// Project-local debug tasks
+//
+// For more documentation on how to configure debug tasks,
+// see: https://zed.dev/docs/debugger
+[
+  {
+    "label": "Debug current file",
+    "adapter": "Debugpy",
+    "program": "$ZED_FILE",
+    "request": "launch",
+    "env": { "PYWM_DEBUG": "1" },
+    "justMyCode": false,
+  },
+]

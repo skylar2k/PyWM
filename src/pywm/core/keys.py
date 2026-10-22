@@ -11,38 +11,22 @@ class Mod(IntFlag):
     NONE = 0
     SHIFT = 1
     CTRL = 2
-    ALT = 4  # the Option key
+    ALT = 4  # either Option key
     CMD = 8
+    L_ALT = 16
+    R_ALT = 32
 
 
 type Chord = tuple[Mod, str]
 
 # Names of *physical* keys. The macOS adapter maps these to hardware key codes.
-KEY_NAMES = frozenset(
-    [
-        *"abcdefghijklmnopqrstuvwxyz0123456789",
-        "return",
-        "space",
-        "tab",
-        "escape",
-        "delete",
-        "left",
-        "right",
-        "up",
-        "down",
-        "comma",
-        "period",
-        "slash",
-        "semicolon",
-        "quote",
-        "minus",
-        "equal",
-        "backslash",
-        "grave",
-        "leftbracket",
-        "rightbracket",
-    ]
-)
+KEY_NAMES = frozenset([
+    *"abcdefghijklmnopqrstuvwxyz0123456789",
+    "return", "space", "tab", "escape", "delete",
+    "left", "right", "up", "down",
+    "comma", "period", "slash", "semicolon", "quote", "minus", "equal",
+    "backslash", "grave", "leftbracket", "rightbracket",
+])  # fmt: skip
 
 
 class Key:

@@ -33,6 +33,7 @@ from ApplicationServices import (
     kAXWindowCreatedNotification,
     kAXWindowDeminiaturizedNotification,
     kAXWindowMiniaturizedNotification,
+    kAXWindowMovedNotification,
 )
 from CoreFoundation import (
     CFRunLoopAddSource,

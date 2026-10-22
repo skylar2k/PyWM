@@ -32,7 +32,7 @@ FOLLOW_FOCUS = True  # Cmd-Tab to a window on a hidden tag switches to that tag
 
 # --- behaviour ------------------------------------------------------------------------
 
-TERMINAL = ("open", "-na", "Terminal")  # what Mod+Shift+Return runs
+TERMINAL = ("open", "-na", "Ghostty")  # what Mod+Shift+Return runs
 AX_TIMEOUT = 0.3  # seconds to wait on one app before giving up on it (hung apps)
 
 # --- rules (dwm's rules[]) ------------------------------------------------------------
@@ -52,7 +52,7 @@ RULES = [
 # The main modifier is Option. It also types symbols on many layouts (@ { [ | on Nordic ones),
 # and a bound combination no longer types them. Mod.CTRL | Mod.ALT is a common alternative.
 
-MOD = Mod.ALT
+MOD = Mod.R_ALT
 SHIFT, CTRL = Mod.SHIFT, Mod.CTRL
 
 KEYS = [

@@ -22,6 +22,7 @@ from pywm.platform.events import (
     FocusChanged,
     ScreensChanged,
     WindowsChanged,
+    WindowsMoved,
 )
 
 log = logging.getLogger(__name__)
@@ -70,6 +71,8 @@ class Controller:
                 self.apply()
             case WindowsChanged(pid):
                 self.resync_soon(pid)
+            case WindowsMoved(pid):
+                ...
             case FocusChanged():
                 self.wm.window_focused(self.platform.focused_window())
                 self.apply()

@@ -8,6 +8,8 @@ keyboard has its comma. The letters, digits, return, space and tab used by the
 default bindings sit in the same place on US and Nordic layouts.
 """
 
+from functools import cache
+
 from Quartz import (
     kCGEventFlagMaskAlternate,
     kCGEventFlagMaskCommand,
@@ -15,7 +17,7 @@ from Quartz import (
     kCGEventFlagMaskShift,
 )
 
-from pywm.core.keys import Mod
+from pywm.core.keys import KEY_NAMES, Mod
 
 KEYCODES: dict[str, int] = {
     "a": 0x00, "s": 0x01, "d": 0x02, "f": 0x03, "h": 0x04, "g": 0x05, "z": 0x06, "x": 0x07,
@@ -28,19 +30,41 @@ KEYCODES: dict[str, int] = {
     "delete": 0x33, "escape": 0x35, "left": 0x7B, "right": 0x7C, "down": 0x7D, "up": 0x7E,
 }  # fmt: skip
 
+# Keep the config-side key names and the hardware table in sync.
+missing = KEY_NAMES - KEYCODES.keys()
+assert not missing, f"no keycode for: {sorted(missing)}"
+
+# IOKit's device-dependent bits (IOLLEvent.h): which Option key is down.
+NX_DEVICELALTKEYMASK = 0x00000020
+NX_DEVICERALTKEYMASK = 0x00000040
+
+ALT_FLAG = kCGEventFlagMaskAlternate
+
 FLAG_FOR: dict[Mod, int] = {
     Mod.SHIFT: kCGEventFlagMaskShift,
     Mod.CTRL: kCGEventFlagMaskControl,
-    Mod.ALT: kCGEventFlagMaskAlternate,
     Mod.CMD: kCGEventFlagMaskCommand,
 }
 
-# The event carries other bits too (caps lock, fn, device specifics); compare only these four.
-RELEVANT_FLAGS = 0
-for _flag in FLAG_FOR.values():
-    RELEVANT_FLAGS |= _flag
+SIDE_FLAGS: dict[Mod, int] = {Mod.L_ALT: NX_DEVICELALTKEYMASK, Mod.R_ALT: NX_DEVICERALTKEYMASK}
 
 
-def flags_for(mods: Mod) -> int:
-    """The CGEvent flag bits that mean exactly this set of modifiers."""
-    return sum(flag for mod, flag in FLAG_FOR.items() if mod & mods)
+@cache
+def candidates(flags: int) -> tuple[Mod, ...]:
+    """The `Mod` values an event with these flags can satisfy, most specific first."""
+    base = Mod.NONE
+    for mod, flag in FLAG_FOR.items():
+        if flags & flag:
+            base |= mod
+
+    if not flags & ALT_FLAG:
+        return (base,)
+
+    sides = Mod.NONE
+    for mod, flag in SIDE_FLAGS.items():
+        if flags & flag:
+            sides |= mod
+
+    # Left Option held -> try a LALT chord first, then fall back to generic ALT
+    # No device bits (synethetic event) -> only generic ALT can match.
+    return (base | sides, base | Mod.ALT) if sides else (base | Mod.Alt,)
