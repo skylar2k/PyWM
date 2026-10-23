@@ -250,14 +250,14 @@ class MacOSPlatform:
         # are delivered and our status-bar windows can be drawn. "Accessory" means no Dock icon.
         app = NSApplication.sharedApplication()
         app.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
-        app.finishLaunching()
         self._workspace = WorkspaceWatcher(self._emit)
         self._workspace.start()
         for pid in self.app_pids():
             self._observer_for(pid)
         for sig in (SIGTERM, SIGHUP):
-            MachSignals.signal(sig, lambda _s: AppHelper.stopEventLoop())
-        AppHelper.runConsoleEventLoop(installInterrupt=True)  # returns on Ctrl-C / stop()
+            MachSignals.signal(sig, lambda _: AppHelper.stopEventLoop())
+        AppHelper.runEventLoop(installInterrupt=True)
+        # AppHelper.runConsoleEventLoop(installInterrupt=True)  # returns on Ctrl-C / stop()
 
     def stop(self) -> None:
         AppHelper.stopEventLoop()
