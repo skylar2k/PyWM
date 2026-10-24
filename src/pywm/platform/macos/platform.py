@@ -257,7 +257,6 @@ class MacOSPlatform:
         for sig in (SIGTERM, SIGHUP):
             MachSignals.signal(sig, lambda _: AppHelper.stopEventLoop())
         AppHelper.runEventLoop(installInterrupt=True)
-        # AppHelper.runConsoleEventLoop(installInterrupt=True)  # returns on Ctrl-C / stop()
 
     def stop(self) -> None:
         AppHelper.stopEventLoop()

@@ -76,6 +76,8 @@ class Controller:
             case FocusChanged():
                 self.wm.window_focused(self.platform.focused_window())
                 self.apply()
+                for pid in self.platform.app_pids():
+                    self.resync_soon(pid)
             case ScreensChanged():
                 self.refresh_screens()
                 self.apply()
