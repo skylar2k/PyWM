@@ -37,6 +37,7 @@ class Controller:
         self._bound = {k.chord: k for k in keys}  # if a chord is bound twice, the last one wins
         self._applied: dict[WindowId, Placement] = {}  # what we last told the OS, per window
         self._pending: set[int] = set()  # pids with a debounced re-sync queued
+        self._last_native_focus: WindowId | None = None  # what macOS said last time (see _sync_focus)
         self._stopping = False
 
     # ------------------------------------------------------------------ lifecycle
@@ -45,7 +46,7 @@ class Controller:
         self.refresh_screens()
         for pid in self.platform.app_pids():
             self.resync(pid)
-        self.wm.window_focused(self.platform.focused_window())
+        self._sync_focus()
         self.apply()
         self.platform.grab_keys(set(self._bound), self.on_chord)
         log.info("managing %d windows on %d monitor(s)", len(self.wm.windows), len(self.wm.monitors))
@@ -74,8 +75,8 @@ class Controller:
             case WindowsMoved(pid):
                 ...
             case FocusChanged():
-                self.wm.window_focused(self.platform.focused_window())
-                self.apply()
+                # Don't decide anything yet: a new window may be about to appear. The re-sync registers
+                # new windows first and only then follows focus (the order AeroSpace uses).
                 for pid in self.platform.app_pids():
                     self.resync_soon(pid)
             case ScreensChanged():
@@ -96,7 +97,7 @@ class Controller:
         looking at *now* rather than on pywm's remembered focus, which events can leave out of date.
         AeroSpace does the same at the start of every command.
         """
-        self.wm.window_focused(self.platform.focused_window())
+        self._sync_focus()
         try:
             action(self.wm, *args)
         except Exception:
@@ -112,6 +113,23 @@ class Controller:
             (s.id, s.frame, s.work_area) for s in sorted(screens, key=lambda s: (s.frame.x, s.frame.y))
         ] != current:
             self.wm.set_screens(screens)
+
+    def _sync_focus(self) -> None:
+        """Follow macOS's idea of the focused window, but only when it *changes*.
+
+        After you switch to an empty tag, macOS still reports the old, now hidden, window as focused.
+        Following that on every sync or keypress would switch straight back to its tag. Acting only on
+        a change is AeroSpace's `lastKnownNativeFocusedWindowId`.
+        """
+        wid = self.platform.focused_window()
+        if wid == self._last_native_focus:
+            return
+        self._last_native_focus = wid
+        before = self.wm.cur.tagset
+        self.wm.window_focused(wid)
+        if self.wm.cur.tagset != before and (w := self.wm.windows.get(wid)):
+            tags = [str(i + 1) for i in range(len(self.wm.config.TAGS)) if self.wm.cur.tagset >> i & 1]
+            log.info("focus followed to %s: view switched to tag %s", w.app, "+".join(tags))
 
     def resync_soon(self, pid: int) -> None:
         """Queue one re-sync of `pid`; bursts of notifications collapse into a single one."""
@@ -130,7 +148,7 @@ class Controller:
         if infos is None:  # app is hung or gone: keep what we know rather than forgetting it
             return
         self.wm.sync_app(pid, infos, exists=self.platform.window_exists)
-        self.wm.window_focused(self.platform.focused_window())
+        self._sync_focus()
         if apply:
             self.apply()
 

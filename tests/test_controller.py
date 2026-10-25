@@ -2,7 +2,7 @@
 
 from pywm.core.wm import WindowManager as WM
 from pywm.geometry import Rect
-from pywm.platform.events import AppLaunched, AppTerminated, ScreensChanged, WindowsChanged
+from pywm.platform.events import AppLaunched, AppTerminated, FocusChanged, ScreensChanged, WindowsChanged
 
 
 def start(ctl):
@@ -155,3 +155,32 @@ def test_commands_act_on_the_window_the_os_says_is_focused(ctl, platform):
     ctl.execute(WM.tag, 2)
     assert ctl.wm.windows[zen].tags == 0b10
     assert ctl.wm.windows[zed].tags == 0b01  # untouched
+
+
+def test_view_stays_on_an_empty_tag_while_macos_still_reports_the_hidden_window_as_focused(ctl, platform):
+    """Regression: after switching to an empty tag macOS keeps the old (now hidden) window focused.
+    Following that again on every sync or keypress sent the view straight back to its tag."""
+    a = platform.add_window()
+    start(ctl)
+    platform.focused = a  # macOS: a is focused
+    ctl.execute(WM.view, 2)  # tag 2 is empty; the fake keeps reporting a (hidden) as focused
+    assert ctl.wm.cur.tagset == 0b10
+    ctl.handle(FocusChanged())
+    platform.run_timers()  # the re-sync of every app that a focus event queues
+    ctl.execute(WM.inc_nmaster, 1)
+    ctl.execute(WM.inc_nmaster, -1)
+    assert ctl.wm.cur.tagset == 0b10  # still on the empty tag
+
+
+def test_view_still_follows_when_macos_focus_moves_to_a_window_on_another_tag(ctl, platform):
+    a, b = platform.add_window(), platform.add_window()
+    start(ctl)
+    ctl.wm.windows[b].tags = 0b100  # b lives on tag 3, so it is hidden
+    ctl.apply()
+    platform.focused = a
+    ctl.execute(WM.inc_nmaster, 0)  # a is focused and visible: nothing to follow
+    assert ctl.wm.cur.tagset == 0b1
+    platform.focused = b  # the user switches to b's app (e.g. Cmd-Tab)
+    ctl.handle(FocusChanged())
+    platform.run_timers()
+    assert ctl.wm.cur.tagset == 0b100

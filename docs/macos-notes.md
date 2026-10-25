@@ -117,6 +117,11 @@ single Space plus native fullscreen is the best-supported setup.
 `NSRunningApplication.activate` is restricted since macOS 14 (cooperative activation). pywm uses plain AX instead:
 set `AXFrontmost` on the app, `AXMain` and `AXFocusedWindow`, then perform `AXRaise` on the window.
 
+**Following macOS focus.** `Controller._sync_focus` hands macOS's focused window to the window manager (which switches tags if it is hidden,
+`FOLLOW_FOCUS`) only when that window *changes*. After you switch to an empty tag macOS still reports the old, now hidden window as focused, and
+following that on every sync or keypress would switch straight back. This is AeroSpace's `lastKnownNativeFocusedWindowId` (`focusCache.swift`).
+Its known limitation is ours too: re-activating the already-focused app (for example its Dock icon) does not switch back, because focus did not change.
+
 ## Event loop and shutdown
 
 `AppHelper.runConsoleEventLoop` runs the main run loop; observers and the event tap are attached to it in common modes.
