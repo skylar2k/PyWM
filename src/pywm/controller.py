@@ -90,7 +90,13 @@ class Controller:
         self.execute(key.action, *key.args)
 
     def execute(self, action: Callable[..., None], *args: Any) -> None:
-        """Run `action(wm, *args)` and apply the result. A buggy action is logged, never fatal."""
+        """Run `action(wm, *args)` and apply the result. A buggy action is logged, never fatal.
+
+        First re-read which window the OS says is focused, so the action acts on what you are
+        looking at *now* rather than on pywm's remembered focus, which events can leave out of date.
+        AeroSpace does the same at the start of every command.
+        """
+        self.wm.window_focused(self.platform.focused_window())
         try:
             action(self.wm, *args)
         except Exception:

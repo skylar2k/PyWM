@@ -14,6 +14,7 @@ from AppKit import (
     NSApplication,
     NSApplicationActivationPolicyAccessory,
     NSRunningApplication,
+    NSWorkspace,
 )
 from PyObjCTools import AppHelper, MachSignals
 from Quartz import CGWindowListCopyWindowInfo, kCGNullWindowID, kCGWindowListOptionAll, kCGWindowNumber
@@ -27,7 +28,7 @@ from pywm.platform.macos.hotkeys import HotkeyTap
 from pywm.platform.macos.observers import AppObserver
 from pywm.platform.macos.parking import Parking, corner
 from pywm.platform.macos.screens import read_screens
-from pywm.platform.macos.workspace import OWN_PID, WorkspaceWatcher, running_pids
+from pywm.platform.macos.workspace import WorkspaceWatcher, is_manageable, running_pids
 
 log = logging.getLogger(__name__)
 
@@ -121,14 +122,26 @@ class MacOSPlatform:
         return wid in ids
 
     def focused_window(self) -> WindowId | None:
-        try:
-            app = ax.get(ax.system_wide(), "AXFocusedApplication")
-            if app is None or ax.pid_of(app) == OWN_PID:
-                return None
-            el = ax.get(app, "AXFocusedWindow")
-            return ax.window_id(el) if el is not None else None
-        except ax.AXFailure:
+        """The focused window of the frontmost app, or None if that app is not one we manage.
+
+        Ask NSWorkspace which app is in front, then ask *that app* for its focused window. This is
+        what AeroSpace does; it avoids the system-wide AX element's `AXFocusedApplication`, which is
+        a second, separate answer to "who has focus" that can disagree with the first.
+        """
+        app = NSWorkspace.sharedWorkspace().frontmostApplication()
+        if app is None or not is_manageable(app):  # also excludes pywm itself
             return None
+        pid = int(app.processIdentifier())
+        if self._backing_off(pid):
+            return None
+        try:
+            el = ax.get(self._observer_for(pid).element, "AXFocusedWindow")
+            return ax.window_id(el) if el is not None else None
+        except ax.AXUnresponsive:
+            self._back_off(pid)
+        except ax.AXFailure:
+            pass
+        return None
 
     # ------------------------------------------------------------------ writing
 

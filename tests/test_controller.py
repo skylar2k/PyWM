@@ -144,3 +144,14 @@ def test_screen_change_replans_with_new_work_area(ctl, platform):
     ctl.handle(ScreensChanged())
     platform.run_timers()
     assert platform.windows[a].frame == Rect(0, 0, 800, 600)
+
+
+def test_commands_act_on_the_window_the_os_says_is_focused(ctl, platform):
+    """Regression: focus Claude, press 'send to tag 2', and Zed (pywm's remembered focus) moved instead."""
+    zed, zen = platform.add_window("Zed"), platform.add_window("Zen")
+    start(ctl)
+    ctl.wm.window_focused(zed)  # what pywm remembers
+    platform.focused = zen  # what the user did: clicked Zen, and no event reached pywm
+    ctl.execute(WM.tag, 2)
+    assert ctl.wm.windows[zen].tags == 0b10
+    assert ctl.wm.windows[zed].tags == 0b01  # untouched
