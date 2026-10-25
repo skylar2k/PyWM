@@ -5,6 +5,7 @@ to mock. Port it from `match()` in dmenu.c (https://git.suckless.org/dmenu/file/
 """
 
 from collections.abc import Sequence
+from itertools import chain
 
 
 def match(items: Sequence[str], text: str, *, ignore_case: bool = False) -> list[str]:
@@ -25,5 +26,23 @@ def match(items: Sequence[str], text: str, *, ignore_case: bool = False) -> list
     Examples:  match(["xfire", "firefox", "fire", "campfire"], "fire")
                == ["fire", "firefox", "xfire", "campfire"]
     """
-    # TODO(human): implement the three-group ordering described above.
-    raise NotImplementedError("step 1: implement match(); see pymenu/README.md")
+    # A function, chosen once, instead of an `if ignore_case` at every comparison below.
+    fold = str.casefold if ignore_case else str
+    needle = fold(text)
+    tokens = [t for t in needle.split(" ") if t]
+    if not tokens:
+        return list(items)  # a copy, never the caller's own object
+
+    def rank(haystack: str) -> int:
+        """0: exact, 1: starts with the first token, 2: contains the tokens somewhere else."""
+        if haystack == needle:
+            return 0
+        return 1 if haystack.startswith(tokens[0]) else 2
+
+    # Deciding the rank (above) is kept apart from collecting by rank (here).
+    buckets: tuple[list[str], list[str], list[str]] = ([], [], [])
+    for item in items:
+        haystack = fold(item)
+        if all(token in haystack for token in tokens):  # a generator: stops at the first miss
+            buckets[rank(haystack)].append(item)
+    return [*chain.from_iterable(buckets)]

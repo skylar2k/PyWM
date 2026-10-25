@@ -44,3 +44,8 @@ def test_matching_is_case_sensitive_by_default():
 def test_ignore_case_applies_to_substring_prefix_and_exact():
     assert match(["Firefox", "firefox"], "FIRE", ignore_case=True) == ["Firefox", "firefox"]
     assert match(["xFire", "FIRE", "fire"], "fire", ignore_case=True) == ["FIRE", "fire", "xFire"]
+
+
+def test_return_is_not_items():
+    items = ["open the file", "file open", "opener", "close file"]
+    assert match(items, "") is not items
