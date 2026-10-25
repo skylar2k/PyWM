@@ -93,7 +93,9 @@ src/pywm/
   bar/                 the status bar, a self-contained package
     bar.py               one panel per monitor
     view.py              the drawing
-tests/                 165 tests; fake_platform.py stands in for macOS
+src/pymenu/            a dmenu port for shell scripts: a separate package, imports nothing from pywm
+                       (src/pymenu/README.md has its steps; they are yours to implement)
+tests/                 pywm's tests (fake_platform.py stands in for macOS) and pymenu's spec tests
 docs/
   architecture.md      the layers, dwm-to-pywm map, patterns and the book chapters behind them
   macos-notes.md       every macOS trap this code works around, and how
