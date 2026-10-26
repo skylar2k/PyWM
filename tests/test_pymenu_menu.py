@@ -61,6 +61,35 @@ def test_backspace_at_the_start_does_nothing():
     assert (m.text, m.cursor) == ("x", 0)
 
 
+def test_delete_word_back_keeps_what_is_right_of_the_cursor():
+    m = Menu(["a"])
+    m.insert("foo bar baz")
+    m.cursor = 7
+    m.delete_word_back()
+    assert (m.text, m.cursor) == ("foo  baz", 4)
+
+
+def test_delete_word_back_rematches():
+    m = Menu(["foo", "foo bar"])
+    m.insert("foo bar")
+    m.delete_word_back()
+    assert m.matches == ["foo", "foo bar"]
+
+
+def test_delete_word_back_treats_every_delimiter_character_as_a_delimiter():
+    m = Menu(["a"], word_delimiters=" -/")
+    m.text, m.cursor = "--b", 2
+    m.delete_word_back()
+    assert (m.text, m.cursor) == ("b", 0)
+
+
+def test_delete_word_back_with_several_delimiter_characters_and_a_tail():
+    m = Menu(["a"], word_delimiters="/ ")
+    m.text, m.cursor = "-b  a", 4
+    m.delete_word_back()
+    assert (m.text, m.cursor) == ("a", 0)
+
+
 def test_delete_removes_the_character_at_the_cursor_and_does_nothing_at_the_end():
     m = Menu(["a"])
     m.insert("abc")

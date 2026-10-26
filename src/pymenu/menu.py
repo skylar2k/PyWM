@@ -11,6 +11,22 @@ from dataclasses import dataclass
 from pymenu.match import match
 
 
+def _word_start(before: str, delimiters: str) -> int:
+    """Index where the word that ends `before` starts, after skipping trailing delimiters."""
+    p = len(before.rstrip(delimiters))
+    while p > 0 and before[p - 1] not in delimiters:
+        p -= 1
+    return p
+
+
+def _word_end(after: str, delimiters: str) -> int:
+    """Index where the first word in `after` ends, after skipping leading delimiters."""
+    p = len(after) - len(after.lstrip(delimiters))
+    while p < len(after) and after[p] not in delimiters:
+        p += 1
+    return p
+
+
 @dataclass
 class Choice:
     """What accepting (Return) produced: the text to print, and whether the menu should close."""
@@ -60,15 +76,24 @@ class Menu:
 
     def insert(self, s: str) -> None:
         """Insert `s` at the cursor, move the cursor after it, and rematch."""
-        raise NotImplementedError("step 2a: Menu.insert")
+        self.text = self.text[: self.cursor] + s + self.text[self.cursor :]
+        self.cursor = self.cursor + len(s)
+        self.rematch()
 
     def backspace(self) -> None:
         """Delete the character before the cursor (nothing at the start of the text), then rematch."""
-        raise NotImplementedError("step 2a: Menu.backspace")
+        if not self.cursor:
+            return
+        self.text = self.text[: self.cursor - 1] + self.text[self.cursor :]
+        self.cursor = self.cursor - 1
+        self.rematch()
 
     def delete(self) -> None:
         """Delete the character at the cursor (nothing at the end of the text), then rematch."""
-        raise NotImplementedError("step 2a: Menu.delete")
+        if self.cursor >= len(self.text):
+            return
+        self.text = self.text[: self.cursor] + self.text[self.cursor + 1 :]
+        self.rematch()
 
     def delete_word_back(self) -> None:
         """Ctrl+w: delete delimiter characters before the cursor, then the word characters before those.
@@ -76,23 +101,31 @@ class Menu:
         "foo bar baz" with the cursor at the end becomes "foo bar "; again, "foo ". A character is a
         delimiter if it occurs in `self.word_delimiters`.
         """
-        raise NotImplementedError("step 2a: Menu.delete_word_back")
+        before, after = self.text[: self.cursor], self.text[self.cursor :]
+        kept = _word_start(before, self.word_delimiters)
+        self.text, self.cursor = before[:kept] + after, kept
+        self.rematch()
 
     def delete_to_end(self) -> None:
         """Ctrl+k: delete everything from the cursor to the end of the text, then rematch."""
-        raise NotImplementedError("step 2a: Menu.delete_to_end")
+        self.text = self.text[: self.cursor]
+        self.rematch()
 
     def delete_to_start(self) -> None:
         """Ctrl+u: delete everything before the cursor (the cursor goes to 0), then rematch."""
-        raise NotImplementedError("step 2a: Menu.delete_to_start")
+        self.text = self.text[self.cursor :]
+        self.cursor = 0
+        self.rematch()
 
     def word_left(self) -> None:
         """Alt+b / Ctrl+Left: move to the start of the word before the cursor (skip delimiters first)."""
-        raise NotImplementedError("step 2a: Menu.word_left")
+        before, after = self.text[: self.cursor], self.text[self.cursor :]
+        self.cursor = _word_start(before, self.word_delimiters)
 
     def word_right(self) -> None:
         """Alt+f / Ctrl+Right: move to the end of the next word (skip delimiters first)."""
-        raise NotImplementedError("step 2a: Menu.word_right")
+        before, after = self.text[: self.cursor], self.text[self.cursor :]
+        self.cursor += _word_end(after, self.word_delimiters)
 
     # ------------------------------------------------------------------ 2b: selection and paging
 
