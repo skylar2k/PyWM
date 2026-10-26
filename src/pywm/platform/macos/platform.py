@@ -22,6 +22,7 @@ from Quartz import CGWindowListCopyWindowInfo, kCGNullWindowID, kCGWindowListOpt
 from pywm.core.keys import Chord
 from pywm.core.types import Screen, WindowId, WindowInfo
 from pywm.geometry import Rect
+from pywm.platform import Platform
 from pywm.platform.events import Event, WindowsChanged
 from pywm.platform.macos import ax
 from pywm.platform.macos.hotkeys import HotkeyTap
@@ -35,7 +36,7 @@ log = logging.getLogger(__name__)
 BACKOFF = 2.0  # seconds to leave an unresponsive app alone
 
 
-class MacOSPlatform:
+class MacOSPlatform(Platform):
     def __init__(self, config: ModuleType) -> None:
         self.config = config
         ax.set_global_timeout(config.AX_TIMEOUT)

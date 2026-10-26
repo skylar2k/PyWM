@@ -5,8 +5,13 @@ ch. 10) that hides everything macOS-specific behind a handful of methods. The
 controller only ever sees this protocol, so tests can plug in `FakePlatform`
 and a port to another OS would only have to implement it.
 
-A `Protocol` (*Fluent Python*, ch. 13) is "static duck typing": classes satisfy
-it by having the right methods; none of them has to inherit from it.
+A `Protocol` (*Fluent Python*, ch. 13) is "static duck typing": a class satisfies
+it just by having the right methods. Our two implementations, `MacOSPlatform` and
+the tests' `FakePlatform`, inherit from it anyway. Not because they must, but so
+that "go to implementation" in an editor can find them: language servers follow
+inheritance, not shape. The price is that a method forgotten in a subclass would
+silently inherit the `...` below, so `tests/test_platform_contract.py` checks that
+every method is overridden.
 """
 
 from collections.abc import Callable

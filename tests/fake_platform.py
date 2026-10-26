@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from pywm.core.keys import Chord
 from pywm.core.types import Screen, WindowId, WindowInfo
 from pywm.geometry import Rect
+from pywm.platform import Platform
 from pywm.platform.events import Event
 
 OFFSCREEN = 100_000
@@ -29,7 +30,7 @@ class FakeWindow:
 
 
 @dataclass
-class FakePlatform:  # no slots: tests may monkeypatch methods
+class FakePlatform(Platform):  # no slots: tests may monkeypatch methods
     screen_list: list[Screen] = field(
         default_factory=lambda: [Screen(1, "Fake Display", Rect(0, 0, 1600, 1000), Rect(0, 25, 1600, 975))]
     )
