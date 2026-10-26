@@ -132,20 +132,50 @@ class Menu:
     def select_next(self) -> None:
         """Down: select the next match. Stepping past the last item on the page makes that item the
         first of the next page (`page_start = sel`). Does nothing on the last match."""
-        raise NotImplementedError("step 2b: Menu.select_next")
+        next_page = self.page_start + self.per_page
+
+        # No selection or going out of bounds
+        if self.sel is None or self.sel + 1 >= len(self.matches):
+            return
+        self.sel += 1
+        if self.sel >= next_page:
+            self.page_start = self.sel
 
     def select_prev(self) -> None:
         """Up: select the previous match. Stepping before the first item on the page shows the
         previous page (`page_start` goes back by `per_page`, not below 0). Nothing on the first match."""
-        raise NotImplementedError("step 2b: Menu.select_prev")
+        previous_page = max(0, self.page_start - self.per_page)
+        if self.sel is None or self.sel <= 0:
+            return
+        self.sel -= 1
+        if self.sel < self.page_start:
+            self.page_start = previous_page
 
     def page_next(self) -> None:
-        """Page Down: the next page, with its first item selected. Nothing if there is no next page."""
-        raise NotImplementedError("step 2b: Menu.page_next")
+        """Page Down: the next page, with its first item selected."""
+        # Empty menu or nothing selected
+        if self.sel is None:
+            return
+
+        next_page = self.page_start + self.per_page
+        # No next page: If next page is more than the length of matches
+        if next_page >= len(self.matches):
+            return
+
+        self.sel = self.page_start = next_page
 
     def page_prev(self) -> None:
-        """Page Up: the previous page, with its first item selected. Nothing on the first page."""
-        raise NotImplementedError("step 2b: Menu.page_prev")
+        """Page Up: show the previous page and select its first item.
+
+        On the first page there is no previous page, but dmenu still selects that page's first item
+        (`sel = page_start = 0`), so this does the same. `page_start` never goes below 0.
+        """
+        # Empty menu or nothing selected
+        if self.sel is None:
+            return
+
+        previous_page = max(0, self.page_start - self.per_page)
+        self.sel = self.page_start = previous_page
 
     def left(self) -> None:
         """The Left arrow, which does two jobs in dmenu.
@@ -154,28 +184,58 @@ class Menu:
         OR the list is vertical (`lines > 0`)): move the cursor left one character.
         Otherwise, in a vertical list do nothing; in a horizontal one act like `select_prev`.
         """
-        raise NotImplementedError("step 2b: Menu.left")
+        if self.cursor > 0 and (self.sel is None or self.sel == 0 or self.lines > 0):
+            self.cursor -= 1
+            return
+        # Vertical list
+        if self.lines > 0:
+            return
+        self.select_prev()
 
     def right(self) -> None:
         """The Right arrow: if the cursor is not at the end of the text, move it right one character.
         At the end of the text: nothing in a vertical list, `select_next` in a horizontal one."""
-        raise NotImplementedError("step 2b: Menu.right")
+        if self.cursor < len(self.text):
+            self.cursor += 1
+            return
+        # Vertical list
+        if self.lines > 0:
+            return
+        self.select_next()
 
     def home(self) -> None:
         """Home, which does two jobs: if nothing or the first match is selected, move the cursor to 0;
         otherwise select the first match and show the first page."""
-        raise NotImplementedError("step 2b: Menu.home")
+        if self.sel is None or self.sel == 0:
+            self.cursor = 0
+        else:
+            self.sel = self.page_start = 0
 
     def end(self) -> None:
         """End, two jobs: if the cursor is not at the end of the text, move it there. Otherwise select
         the last match; if that is not on the visible page, show the last full page
         (`page_start = max(0, len(matches) - per_page)`)."""
-        raise NotImplementedError("step 2b: Menu.end")
+        if self.cursor != len(self.text):
+            self.cursor = len(self.text)
+            return
+        # No matches, so nothing to do
+        if self.sel is None:
+            return
+
+        self.sel = len(self.matches) - 1
+        # Only if the last match is off the current page, show the last full page (dmenu: `if (next)`)
+        if self.sel >= self.page_start + self.per_page:
+            self.page_start = max(0, len(self.matches) - self.per_page)
 
     def complete(self) -> None:
         """Tab: copy the selected match into the input (cursor at its end) and rematch. Nothing if
         no match is selected."""
-        raise NotImplementedError("step 2b: Menu.complete")
+        # No matches, so nothing to complete with
+        if self.sel is None:
+            return
+        self.text = self.matches[self.sel]
+        self.cursor = len(self.text)
+        self.rematch()
 
     # ------------------------------------------------------------------ 2c: finishing
 
@@ -187,8 +247,15 @@ class Menu:
         * Without `ctrl` the menu closes.
         * With `ctrl` it stays open, and the selected match (if any) is added to `self.marked`.
         """
-        raise NotImplementedError("step 2c: Menu.accept")
+        # What a script receives: the selected match, or the typed text (Shift, or no match to choose)
+        output = self.text if self.sel is None or shift else self.matches[self.sel]
+        if not ctrl:
+            return Choice(output, close=True)
+        # Ctrl+Return keeps the menu open and marks the item
+        if self.sel is not None:
+            self.marked.add(self.matches[self.sel])
+        return Choice(output, close=False)
 
     def cancel(self) -> None:
         """Escape / Ctrl+c / Ctrl+g: set `self.cancelled`."""
-        raise NotImplementedError("step 2c: Menu.cancel")
+        self.cancelled = True
