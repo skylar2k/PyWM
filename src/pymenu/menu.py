@@ -119,12 +119,12 @@ class Menu:
 
     def word_left(self) -> None:
         """Alt+b / Ctrl+Left: move to the start of the word before the cursor (skip delimiters first)."""
-        before, after = self.text[: self.cursor], self.text[self.cursor :]
+        before = self.text[: self.cursor]
         self.cursor = _word_start(before, self.word_delimiters)
 
     def word_right(self) -> None:
         """Alt+f / Ctrl+Right: move to the end of the next word (skip delimiters first)."""
-        before, after = self.text[: self.cursor], self.text[self.cursor :]
+        after = self.text[self.cursor :]
         self.cursor += _word_end(after, self.word_delimiters)
 
     # ------------------------------------------------------------------ 2b: selection and paging
