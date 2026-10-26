@@ -3,50 +3,100 @@
 A port of suckless [dmenu](https://tools.suckless.org/dmenu/) to macOS, for shell scripts:
 
 ```sh
-printf '%s\n' red green blue | pymenu -p 'colour:'            # prints the choice
+printf '%s\n' red green blue | pymenu -p 'colour:'           # prints the choice
 dir=$(ls ~/Projects | pymenu -i -l 10) || exit 1               # exit status 1: cancelled
 name=$(echo | pymenu -p 'name:')                               # no items: a plain text prompt
 ```
 
 The contract is dmenu's: **items on stdin** (one per line), **the choice on stdout**, **exit 0 = chosen,
 exit 1 = cancelled**. If nothing matches, Return prints what you typed; Shift+Return always does.
+Ctrl+Return prints the selection *without closing*, so a script can read several.
 
-It is a separate package: `src/pymenu/` imports nothing from `pywm`, and has its own script (`uv run pymenu`).
+Run it with `uv run pymenu`. It is a separate package: `src/pymenu/` imports nothing from `pywm`.
+It needs **no macOS permissions**: it receives keys in its *own* window.
 
-## Your job: the program itself
+## How it fits together
 
-The command line, settings and glue are written (`cli.py`, `config.py`, `app.py`, with passing tests).
-**You implement five steps.** Each one has a stub that fails loudly, a docstring that is the spec, and tests:
+```
+ stdin ──► cli.py ──► app.py ──► macos/window.py ──► your screen
+ (items,   flags,     glue       the panel, the event loop, exit status
+  flags)   settings                  │            ▲
+                                     │ NSEvent    │ draws
+                                     ▼            │
+                        macos/events.py      macos/view.py
+                        key code ─► KeyPress    Menu ─► pixels
+                                     │
+              ┌──────────────────────┴───────────────────────┐
+              │   THE PURE CORE: no AppKit, no window, no I/O │
+              │   keys.py   KeyPress ─► a Menu method         │
+              │   menu.py   text, cursor, selection, pages    │
+              │   match.py  which items match, best first     │
+              └───────────────────────────────────────────────┘
+```
 
-| Step | File | What | dmenu.c to read | Check with |
-| ---- | ---- | ---- | --------------- | ---------- |
-| 1 | `match.py` | which items match, in which order (pure function) | `match()` | `uv run pytest tests/test_pymenu_match.py` |
-| 2 | `menu.py` | the state: text, cursor, selection, paging (2a text, 2b list, 2c finish) | `insert`, `movewordedge`, `calcoffsets`, parts of `keypress` | `tests/test_pymenu_menu.py` |
-| 3 | `keys.py` | key press to Menu method: dmenu's big `switch` as a table | `keypress()` | `tests/test_pymenu_keys.py` |
-| 4 | `macos/view.py` | drawing: prompt, input and cursor, items | `drawmenu()`, `drw.c` | by eye, step 5 |
-| 5 | `macos/window.py` | the panel, key events, event loop, exit status | `setup()`, `run()` | `echo -e 'a\nb' \| uv run pymenu` |
+Everything inside the box can be (and is) tested without a screen. Only the two files on the right
+touch AppKit, and even they are mostly small functions.
 
-Steps 1 to 3 are pure Python with no window: the tests *are* the spec, so work until they are green.
-Do them in order (2 uses 1; 3 uses 2). Steps 4 and 5 are AppKit, and you see the result on screen.
-The original source is at <https://git.suckless.org/dmenu/file/dmenu.c.html>; it is about 800 lines.
+## Reading order
 
-## Things worth knowing before step 5
+| # | file | what it teaches | dmenu.c counterpart | tested by |
+| - | ---- | --------------- | ------------------- | --------- |
+| 1 | `match.py` | a pure function; the three-group ordering | `match()` | `test_pymenu_match.py` |
+| 2 | `menu.py` | a state machine and its **invariants** | `insert`, `movewordedge`, `calcoffsets`, much of `keypress` | `test_pymenu_menu.py`, `test_pymenu_invariants.py` |
+| 3 | `keys.py` | behaviour as *data*: tables instead of a giant `switch` | `keypress()` | `test_pymenu_keys.py` |
+| 4 | `macos/events.py` | the seam between the OS and the pure core | (X11 key events) | `test_pymenu_events.py` |
+| 5 | `macos/view.py` | drawing with AppKit | `drawmenu()`, `drw.c` | `test_pymenu_view.py` (draws into a bitmap) |
+| 6 | `macos/window.py` | an app, a window, an event loop, an exit status | `setup()`, `run()` | `test_pymenu_window_gui.py` |
+| - | `cli.py`, `config.py`, `app.py` | flags, defaults, glue | `main()`, `config.def.h` | `test_pymenu_cli.py` |
 
-* **No permissions needed.** pymenu receives keys in *its own* window. Accessibility and Input Monitoring
-  are for reaching into other apps; this does neither. (Don't port `XGrabKeyboard` with an event tap.)
-* A borderless `NSPanel` only takes keys if a subclass overrides `canBecomeKeyWindow` to return `True`.
-* The app must be activated, and that only works under a real `NSApplication.run()` loop:
-  use `PyObjCTools.AppHelper.runEventLoop()`. Under `runConsoleEventLoop` macOS says your process is
-  frontmost but the window never becomes key (this was found the hard way in pywm).
-* `NSApplicationMain` ends the process with a C `exit()`, which skips Python's stdout flush. Print with
-  `flush=True` (`cli.emit` already does) and call `emit` *before* stopping the loop.
-* AppKit's y axis points up. `NSView.isFlipped` returning `True` gives you a top-left origin inside a view.
-* Use the *accessory* activation policy so there is no Dock icon.
-* `src/pywm/bar/view.py` in this repository is a small working example of drawing text cells.
+The original is at <https://git.suckless.org/dmenu/file/dmenu.c.html>; it is about 800 lines.
 
-## Stretch goals
+## Three levels of tests
 
-Horizontal paging by pixel width (dmenu's `calcoffsets` measures text; `Menu.per_page` is a fixed count),
-`-m` and `-b` placement, Ctrl+Return multi-select, dead keys and input methods (`NSTextInputClient`,
-dmenu's XIM), a `pymenu_run` launcher (dmenu_run lists executables on `$PATH`, with a cache), and a key
-binding in `pywm/config.py` that spawns it, as dwm does with `dmenu_run`.
+```sh
+uv run pytest tests/test_pymenu_*.py -q                         # pure + offscreen: fast, no windows
+PYMENU_GUI_TESTS=1 uv run pytest tests/test_pymenu_window_gui.py -q   # real window; flashes on screen for ~10 s
+```
+
+* **Pure** (`match`, `menu`, `keys`, `events`, `cli`): plain asserts. `test_pymenu_invariants.py`
+  applies thousands of random operations and checks four invariants after each one.
+* **Offscreen** (`view`): the view is drawn into an in-memory bitmap and individual pixels are read back.
+* **End to end** (`window_gui`): the genuine program in a child process, with key events delivered
+  to the window, checking what it prints and its exit status. Opt-in because it takes focus.
+
+## AppKit lessons in this code
+
+* **An accessory app** (`setActivationPolicy_`): no Dock icon, no menu bar of its own.
+* **A borderless window only takes keys if it says so**: `canBecomeKeyWindow` must return `True`.
+* **A real `NSApplication.run()` loop is required** for activation and key focus. Lighter loops make
+  macOS report the process as frontmost while the window never receives keys.
+* **Stopping `run()` from inside**: `app.stop_(None)` plus a posted dummy event. Terminating through
+  AppKit would end the process with a C `exit()`, which skips Python's stdout flush and loses the exit status.
+* **Views draw in `drawRect_`**; `isFlipped` gives a top-left origin; `NSRectClip` keeps a long item
+  inside its cell; clipping state is bracketed by `saveGraphicsState` / `restoreGraphicsState`.
+* **Colour spaces**: colours are specified in sRGB, but a bitmap is "Generic RGB", so `0x222222` reads
+  back as 26 there. Convert before comparing (see `tests/test_pymenu_view.py`).
+* **A subclass method with underscores in its name** is read by PyObjC as an Objective-C selector
+  with arguments, so helpers live in plain module-level functions.
+* **stdout is the API.** Never `print` for debugging inside the program; use stderr.
+
+## How it differs from dmenu
+
+* `-w` (embedding in another window) is accepted and ignored: there is no such thing on macOS.
+* `-f` (grab the keyboard before reading stdin) is accepted and does nothing.
+* A horizontal page holds a **fixed** number of items, sized from the widest ones, where dmenu re-measures
+  to fit as many as possible. This keeps `Menu` simple: `per_page` is one number.
+* Cmd+V pastes (dmenu's Ctrl+y still works). Clicking elsewhere cancels the menu.
+* The menu covers the full width of the screen the mouse is on (or `-m N`), at the top (or bottom with `-b`).
+
+## Things to try next
+
+* **Horizontal paging by pixel width**, like `calcoffsets`: make pages hold different numbers of items.
+  Which `Menu` methods assume a fixed `per_page`, and what would have to change?
+* **Unicode**: type `å` and match an item stored as `a` + a combining ring (`blåbær`). Where is the
+  right place to normalise (`unicodedata.normalize`)?
+* **Dead keys and input methods** (Norwegian layouts!): `NSTextInputClient`, dmenu's XIM equivalent.
+* **`pymenu_run`**: dmenu_run lists executables on `$PATH` (with a cache) and runs the choice.
+* **Bind it in pywm**: `Key(MOD, "p", WM.spawn, ("pymenu_run",))` in `src/pywm/config.py`, the way dwm
+  spawns dmenu.
+* **Mouse support**: click an item to choose it.
