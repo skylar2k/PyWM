@@ -11,7 +11,7 @@ import argparse
 import sys
 from typing import TextIO
 
-from pymenu.config import Settings
+from pymenu.config import CENTER_LINES, Settings
 
 VERSION = "0.1.0"
 
@@ -32,6 +32,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="pymenu", allow_abbrev=False, description="dynamic menu for macOS")
     p.add_argument("-v", action="version", version=f"pymenu-{VERSION}", help="print version and exit")
     p.add_argument("-b", dest="bottom", action="store_true", help="show the menu at the bottom of the screen")
+    p.add_argument("-c", dest="center", action="store_true", help="centre the menu on the screen (like rofi)")
+    p.add_argument(
+        "-W", dest="width", type=int, metavar="POINTS", help="width of a centred menu (default %(default)s)",
+        default=Settings().width,
+    )  # fmt: skip
     p.add_argument("-f", dest="fast", action="store_true", help="accepted for compatibility (no effect)")
     p.add_argument("-i", dest="ignore_case", action="store_true", help="match case-insensitively")
     p.add_argument("-l", dest="lines", type=int, metavar="LINES", help="vertical list with this many lines")
@@ -58,11 +63,15 @@ def parse(argv: list[str] | None = None) -> Settings:
     args = build_parser().parse_args(argv)
     settings = Settings()
     settings.topbar = not args.bottom
+    settings.center = args.center
+    settings.width = max(1, args.width)
     settings.fast = args.fast
     settings.ignore_case = args.ignore_case
     settings.embed = args.embed
     if args.lines is not None:
         settings.lines = max(0, args.lines)
+    elif settings.center and settings.lines == 0:
+        settings.lines = CENTER_LINES  # a centred menu is a list, unless -l said otherwise
     if args.monitor is not None:
         settings.monitor = args.monitor
     if args.prompt is not None:

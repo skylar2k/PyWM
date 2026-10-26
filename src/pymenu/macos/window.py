@@ -70,11 +70,19 @@ def run_menu(menu: Menu, settings: Settings, emit: Callable[[str], None]) -> int
     menu.lines = min(menu.lines, len(menu.items))  # dmenu: more lines than items makes no sense
     screen = pick_screen(settings.monitor)
     frame = screen.frame()
-    width = frame.size.width
-    menu.per_page = menu.lines or fit_per_page(menu, settings, style, width)
-
     height = (menu.lines + 1) * style.bh
-    rect = menu_rect((frame.origin.x, frame.origin.y, width, frame.size.height), height, settings.topbar)
+
+    # Decide where the window goes first: its width is then what the view draws at and what the
+    # horizontal page size is fitted to. (A full-width menu and a centred one differ only here.)
+    center_width = settings.width if settings.center else None
+    rect = menu_rect(
+        (frame.origin.x, frame.origin.y, frame.size.width, frame.size.height),
+        height,
+        settings.topbar,
+        center_width=center_width,
+    )
+    width = rect[2]
+    menu.per_page = menu.lines or fit_per_page(menu, settings, style, width)
 
     session = _Session(menu, emit, app)
     session.view = make_view(width, menu, settings, style, _InputView)
@@ -109,10 +117,12 @@ class _Session:
         """Order the window in, make it the key window, and make our app the active one."""
         self.panel.makeKeyAndOrderFront_(None)
         self.panel.makeFirstResponder_(self.view)
-        if hasattr(self.app, "activate"):  # macOS 14 and later
-            self.app.activate()
-        else:
-            self.app.activateIgnoringOtherApps_(True)
+        # Which call to use matters, and the documentation is misleading. `activateIgnoringOtherApps_` is
+        # marked deprecated ("no effect") since macOS 14, but measured on macOS 27 it is the one that
+        # works from anywhere. The newer `activate()` only succeeds when the app that launched us is
+        # frontmost: it works from a terminal in front, and silently does nothing when pymenu is
+        # started by a background app (a pywm hotkey) while some other app has the focus.
+        self.app.activateIgnoringOtherApps_(True)
         # If macOS refuses to give us the keyboard we would sit here ignoring every key, so say so.
         AppHelper.callLater(0.5, self._warn_if_not_key)
 
@@ -196,13 +206,23 @@ def _make_panel(rect: Rect, session: _Session) -> NSPanel:
 # --------------------------------------------------------------------------- small helpers
 
 
-def menu_rect(screen: Rect, height: float, topbar: bool) -> Rect:
-    """Where the menu goes: the full width of the screen, flush with its top or bottom edge.
+MAX_CENTERED_FRACTION = 0.9  # a centred menu never takes more than this share of the screen's width
+
+
+def menu_rect(screen: Rect, height: float, topbar: bool, *, center_width: float | None = None) -> Rect:
+    """Where the menu goes.
+
+    By default (dmenu's way): the full width of the screen, flush with its top or bottom edge.
+    With `center_width` (the `-c` flag): that many points wide (but at most 90% of the screen, so
+    it still fits on a small display), in the middle of the screen both ways.
 
     `screen` is in AppKit coordinates, where y grows UP, so "the top" is the larger y.
     """
-    x, y, width, screen_height = screen
-    return (x, y + screen_height - height if topbar else y, width, height)
+    x, y, screen_width, screen_height = screen
+    if center_width is not None:
+        width = min(center_width, screen_width * MAX_CENTERED_FRACTION)
+        return (x + (screen_width - width) / 2, y + (screen_height - height) / 2, width, height)
+    return (x, y + screen_height - height if topbar else y, screen_width, height)
 
 
 def pick_screen(monitor: int) -> NSScreen:

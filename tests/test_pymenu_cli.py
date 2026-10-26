@@ -91,3 +91,23 @@ def test_main_hands_items_and_settings_to_the_app_and_returns_its_exit_status(mo
     monkeypatch.setattr("pymenu.app.run", fake_run)
     assert cli.main(["-p", "pick:"]) == 3
     assert seen["items"] == ["x", "y"] and seen["settings"].prompt == "pick:" and seen["emit"] is cli.emit
+
+
+def test_centering_is_off_by_default_with_a_700_point_width():
+    s = cli.parse([])
+    assert (s.center, s.width, s.lines) == (False, 700, 0)
+
+
+def test_dash_c_centres_and_defaults_to_a_ten_line_list():
+    s = cli.parse(["-c"])
+    assert (s.center, s.lines) == (True, config.CENTER_LINES)
+
+
+def test_dash_l_wins_over_the_centred_default():
+    assert cli.parse(["-c", "-l", "4"]).lines == 4
+    assert cli.parse(["-c", "-l", "0"]).lines == 0  # an explicit -l 0 asks for a horizontal row: honoured
+
+
+def test_dash_capital_w_sets_the_width():
+    assert cli.parse(["-c", "-W", "500"]).width == 500
+    assert cli.parse(["-W", "0"]).width == 1  # never zero

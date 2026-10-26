@@ -49,7 +49,10 @@ DRIVER = textwrap.dedent(
 
     def report():
         window = NSApp().windows()[0]
-        print("key window:", bool(window.isKeyWindow()), "| app active:", bool(NSApp().isActive()), file=sys.stderr)
+        f, s = window.frame(), window.screen().frame()
+        print("key window:", bool(window.isKeyWindow()), "| app active:", bool(NSApp().isActive()),
+              "| frame:", f.origin.x, f.origin.y, f.size.width, f.size.height,
+              "| screen:", s.origin.x, s.origin.y, s.size.width, s.size.height, file=sys.stderr)
 
     AppHelper.callLater(0.7, report)
     delay = 0.9
@@ -121,3 +124,25 @@ def test_dash_i_matches_case_insensitively():
 def test_no_items_on_stdin_makes_a_plain_text_prompt():
     out, code, _ = run([[KEY_Z, 0, "z"], [RETURN, 0, "\r"]], items=(), argv=["-p", "name:"])
     assert (out, code) == ("z\n", 0)
+
+
+def _geometry(stderr):
+    """(window, screen) rectangles from the driver's report line."""
+    numbers = lambda part: [float(n) for n in part.split()[:4]]  # noqa: E731
+    frame, screen = stderr.split("| frame:")[1].split("| screen:")
+    return numbers(frame), numbers(screen)
+
+
+def test_dash_c_puts_the_real_window_in_the_middle_of_its_screen():
+    out, code, err = run([[DOWN, 0, ""], [RETURN, 0, "\r"]], argv=["-c", "-W", "600"])
+    assert (out, code) == ("beta\n", 0)  # a centred menu still works as a menu
+    (x, y, w, h), (sx, sy, sw, sh) = _geometry(err)
+    assert w == 600
+    assert abs((x + w / 2) - (sx + sw / 2)) <= 1  # centred horizontally
+    assert abs((y + h / 2) - (sy + sh / 2)) <= 1  # ... and vertically
+
+
+def test_without_dash_c_the_window_spans_the_top_of_the_screen():
+    _, _, err = run([[ESCAPE, 0, "\x1b"]])
+    (x, y, w, h), (sx, sy, sw, sh) = _geometry(err)
+    assert (x, w) == (sx, sw) and abs((y + h) - (sy + sh)) <= 1

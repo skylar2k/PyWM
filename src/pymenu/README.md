@@ -6,6 +6,7 @@ A port of suckless [dmenu](https://tools.suckless.org/dmenu/) to macOS, for shel
 printf '%s\n' red green blue | pymenu -p 'colour:'           # prints the choice
 dir=$(ls ~/Projects | pymenu -i -l 10) || exit 1               # exit status 1: cancelled
 name=$(echo | pymenu -p 'name:')                               # no items: a plain text prompt
+app=$(ls /Applications | pymenu -c -i -p 'run:')               # centred on the screen, like Rofi
 ```
 
 The contract is dmenu's: **items on stdin** (one per line), **the choice on stdout**, **exit 0 = chosen,
@@ -70,6 +71,11 @@ PYMENU_GUI_TESTS=1 uv run pytest tests/test_pymenu_window_gui.py -q   # real win
 * **A borderless window only takes keys if it says so**: `canBecomeKeyWindow` must return `True`.
 * **A real `NSApplication.run()` loop is required** for activation and key focus. Lighter loops make
   macOS report the process as frontmost while the window never receives keys.
+* **Taking the focus from another app**: `activateIgnoringOtherApps_(True)` is marked deprecated, yet it is
+  the call that works when pymenu is started by a background app (say, a pywm hotkey) while a third app
+  has the focus. The newer `activate()` only succeeds when the app that launched us is frontmost, and
+  otherwise silently does nothing. Measured on macOS 27; `_Session._warn_if_not_key` prints a warning
+  to stderr if a future macOS ever disagrees.
 * **Stopping `run()` from inside**: `app.stop_(None)` plus a posted dummy event. Terminating through
   AppKit would end the process with a C `exit()`, which skips Python's stdout flush and loses the exit status.
 * **Views draw in `drawRect_`**; `isFlipped` gives a top-left origin; `NSRectClip` keeps a long item
@@ -88,6 +94,11 @@ PYMENU_GUI_TESTS=1 uv run pytest tests/test_pymenu_window_gui.py -q   # real win
   to fit as many as possible. This keeps `Menu` simple: `per_page` is one number.
 * Cmd+V pastes (dmenu's Ctrl+y still works). Clicking elsewhere cancels the menu.
 * The menu covers the full width of the screen the mouse is on (or `-m N`), at the top (or bottom with `-b`).
+* `-c` centres it instead, as dmenu's centre patch and Rofi do: `-W POINTS` wide (default 700, never more
+  than 90% of the screen), in the middle of the screen both ways. Unless you give `-l`, `-c` shows a
+  vertical list of 10 lines, since a centred one-line strip looks odd. `menu_rect` in `macos/window.py`
+  is the only place that knows about it. The window's width is decided *before* the view is built,
+  because the view draws at that width and the horizontal page size is fitted to it.
 
 ## Things to try next
 

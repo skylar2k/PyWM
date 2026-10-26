@@ -115,3 +115,26 @@ def test_pick_screen_always_finds_a_screen():
 
     NSApplication.sharedApplication()
     assert pick_screen(-1) is not None and pick_screen(99) is not None
+
+
+def test_centred_menu_rect_is_in_the_middle_both_ways():
+    from pymenu.macos.window import menu_rect
+
+    screen = (100.0, 50.0, 1440.0, 900.0)
+    # 700 wide, 200 high: (1440 - 700) / 2 = 370 from the left edge, (900 - 200) / 2 = 350 from the bottom
+    assert menu_rect(screen, 200, topbar=True, center_width=700) == (470.0, 400.0, 700, 200)
+    assert menu_rect(screen, 200, topbar=False, center_width=700) == (470.0, 400.0, 700, 200)  # -b is ignored
+
+
+def test_a_centred_menu_never_exceeds_ninety_percent_of_a_small_screen():
+    from pymenu.macos.window import menu_rect
+
+    x, _, width, _ = menu_rect((0.0, 0.0, 600.0, 400.0), 100, topbar=True, center_width=700)
+    assert width == 540.0 and x == 30.0  # 90% of 600, centred
+
+
+def test_the_uncentred_rect_is_unchanged():
+    from pymenu.macos.window import menu_rect
+
+    screen = (100.0, 50.0, 1440.0, 900.0)
+    assert menu_rect(screen, 20, topbar=True) == (100.0, 930.0, 1440.0, 20)
