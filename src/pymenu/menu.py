@@ -20,7 +20,7 @@ def _word_start(before: str, delimiters: str) -> int:
 
 
 def _word_end(after: str, delimiters: str) -> int:
-    """Index where the first word in `after` ends, after skipping leading delimiters."""
+    """Distance from the start of `after``, which is where the cursor is"""
     p = len(after) - len(after.lstrip(delimiters))
     while p < len(after) and after[p] not in delimiters:
         p += 1
