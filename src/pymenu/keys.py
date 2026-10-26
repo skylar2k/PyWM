@@ -40,9 +40,87 @@ class KeyPress:
     text: str = ""  # the characters this press types, if any ("" for arrows and the like)
 
 
+type Action = Callable[[Menu], None]
+
+# The bindings are data: a key name maps to an *unbound* Menu method, called as `action(menu)`.
+# Defined at module level, so a typo in a method name fails the moment this module is imported.
+_PLAIN: dict[str, Action] = {
+    "left": Menu.left,
+    "right": Menu.right,
+    "up": Menu.select_prev,
+    "down": Menu.select_next,
+    "home": Menu.home,
+    "end": Menu.end,
+    "pageup": Menu.page_prev,
+    "pagedown": Menu.page_next,
+    "delete": Menu.delete,
+    "backspace": Menu.backspace,
+    "tab": Menu.complete,
+    "escape": Menu.cancel,
+}
+
+_CTRL: dict[str, Action] = {
+    "a": Menu.home,
+    "b": Menu.left,
+    "c": Menu.cancel,
+    "d": Menu.delete,
+    "e": Menu.end,
+    "f": Menu.right,
+    "g": Menu.cancel,
+    "h": Menu.backspace,
+    "i": Menu.complete,
+    "n": Menu.select_next,
+    "p": Menu.select_prev,
+    "k": Menu.delete_to_end,
+    "u": Menu.delete_to_start,
+    "w": Menu.delete_word_back,
+    "left": Menu.word_left,
+    "right": Menu.word_right,
+    "leftbracket": Menu.cancel,
+}
+
+_ALT: dict[str, Action] = {
+    "b": Menu.word_left,
+    "f": Menu.word_right,
+    "g": Menu.home,  # Alt+Shift+g is End; see dispatch()
+    "h": Menu.select_prev,
+    "j": Menu.page_next,
+    "k": Menu.page_prev,
+    "l": Menu.select_next,
+}
+
+
 def dispatch(menu: Menu, press: KeyPress, *, paste: Callable[[], str] = lambda: "") -> Choice | None:
     """Apply one key press to the menu. Returns a Choice when Return was pressed, otherwise None.
 
     `paste` returns the clipboard text; Ctrl+y inserts its first line.
     """
-    raise NotImplementedError("step 3: implement dispatch(); see the table in the module docstring")
+    key, shift = press.key, Mod.SHIFT in press.mods
+
+    # Like dmenu, Ctrl takes precedence over Alt, and in either group a key that is not listed
+    # is ignored (it must never be typed into the input).
+    if Mod.CTRL in press.mods:
+        if key in ("j", "m"):  # Ctrl+j / Ctrl+m are Return, and they still close the menu
+            return menu.accept(shift=shift)
+        if key == "return":  # Ctrl+Return accepts but keeps the menu open
+            return menu.accept(shift=shift, ctrl=True)
+        if key == "y":
+            menu.insert(paste().partition("\n")[0])  # only the first line of the clipboard
+        elif action := _CTRL.get(key):
+            action(menu)
+        return None
+
+    if Mod.ALT in press.mods:
+        if key == "g" and shift:  # Alt+Shift+g: End
+            Menu.end(menu)
+        elif action := _ALT.get(key):
+            action(menu)
+        return None
+
+    if key == "return":
+        return menu.accept(shift=shift)
+    if action := _PLAIN.get(key):
+        action(menu)
+    elif press.text and press.text.isprintable():  # anything else that types a character
+        menu.insert(press.text)
+    return None
