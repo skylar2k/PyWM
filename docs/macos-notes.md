@@ -122,6 +122,17 @@ set `AXFrontmost` on the app, `AXMain` and `AXFocusedWindow`, then perform `AXRa
 following that on every sync or keypress would switch straight back. This is AeroSpace's `lastKnownNativeFocusedWindowId` (`focusCache.swift`).
 Its known limitation is ours too: re-activating the already-focused app (for example its Dock icon) does not switch back, because focus did not change.
 
+## Spawning a terminal (`config.TERMINAL`)
+
+`open -na Ghostty` looks harmless, but `-n` means "new instance": every terminal became its own Ghostty process
+with its own Dock icon (and, for pywm, its own AX observer). Ghostty 1.3 can be scripted, so `TERMINAL` runs
+`osascript` with a script that asks the *running* Ghostty for a `new window` (and only launches it when it is not
+running yet; launching already opens a window). The dictionary is in
+`Ghostty.app/Contents/Resources/Ghostty.sdef`; `ghostty +new-window` is Linux-only.
+The catch is a third permission: sending Apple Events needs **Automation**, which macOS asks for on first use.
+If the key does nothing, check *Privacy & Security > Automation*: `osascript` then exits with -1743, and
+`spawn()` discards its stderr.
+
 ## Event loop and shutdown
 
 `AppHelper.runConsoleEventLoop` runs the main run loop; observers and the event tap are attached to it in common modes.

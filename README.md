@@ -23,6 +23,9 @@ pywm needs two permissions, granted to the app that launches it (Terminal, iTerm
 *System Settings > Privacy & Security*: **Accessibility** (move other apps' windows) and
 **Input Monitoring** (see your hotkeys). `PYWM_DEBUG=1 uv run pywm` prints what it is doing.
 
+The first Option+Shift+Return also asks to allow **Automation**: that is pywm asking the running Ghostty for a
+new window (instead of starting a second Ghostty). Allow it, or the key does nothing.
+
 If pywm is killed with `kill -9`, hidden windows sit in the bottom-right corner; just start pywm again and it
 tiles them back. Any normal exit (Option+Shift+Q, Ctrl-C, `kill`) puts them back itself.
 

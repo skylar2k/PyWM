@@ -32,7 +32,19 @@ FOLLOW_FOCUS = True  # Cmd-Tab to a window on a hidden tag switches to that tag
 
 # --- behaviour ------------------------------------------------------------------------
 
-TERMINAL = ("open", "-na", "Ghostty")  # what Mod+Shift+Return runs
+# A new window in the *running* Ghostty. (`open -na Ghostty` starts a whole new process, with its own
+# Dock icon, every time.) AppleScript comments start with `--`.
+NEW_TERMINAL = """
+if application "Ghostty" is running then
+    tell application "Ghostty"
+        new window
+        activate
+    end tell
+else
+    tell application "Ghostty" to activate -- starting Ghostty opens its first window by itself
+end if
+"""
+TERMINAL = ("osascript", "-e", NEW_TERMINAL)  # what Mod+Shift+Return runs
 AX_TIMEOUT = 0.3  # seconds to wait on one app before giving up on it (hung apps)
 
 # --- rules (dwm's rules[]) ------------------------------------------------------------
